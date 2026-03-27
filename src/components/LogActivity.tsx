@@ -3,8 +3,8 @@ import { db, auth } from '../lib/firebase';
 import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { routes } from '../lib/routes';
 import { cn } from '../lib/utils';
-import { motion } from 'motion/react';
-import { Navigation, Calendar, FileText, Send, X, Footprints, Camera, Trash2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { Calendar, ChevronDown, Send, X, Footprints, Camera, Trash2, ImageIcon } from 'lucide-react';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
@@ -16,18 +16,16 @@ interface Props {
 }
 
 const activityTypes = [
-  { id: 'walk', label: 'Walk', icon: '🚶' },
-  { id: 'run', label: 'Run', icon: '🏃' },
-  { id: 'cycle', label: 'Cycle', icon: '🚴' },
-  { id: 'swim', label: 'Swim', icon: '🏊' },
-  { id: 'other', label: 'Other', icon: '⚡' }
+  { id: 'walk', label: 'Walk', icon: '🚶', color: 'bg-green-500/20 text-green-400' },
+  { id: 'run', label: 'Run', icon: '🏃', color: 'bg-orange-500/20 text-orange-400' },
+  { id: 'cycle', label: 'Cycle', icon: '🚴', color: 'bg-blue-500/20 text-blue-400' },
+  { id: 'swim', label: 'Swim', icon: '🏊', color: 'bg-cyan-500/20 text-cyan-400' },
+  { id: 'other', label: 'Other', icon: '⚡', color: 'bg-purple-500/20 text-purple-400' }
 ];
 
-// Convert steps to km with a randomised stride length (element of surprise)
 function stepsToKm(steps: number): number {
-  // Average human stride: 0.65–0.85m depending on pace, height, terrain
-  const baseStride = 0.72; // metres
-  const jitter = 0.12; // ±12% variation
+  const baseStride = 0.72;
+  const jitter = 0.12;
   const stride = baseStride * (1 + (Math.random() * 2 - 1) * jitter);
   return (steps * stride) / 1000;
 }
@@ -38,6 +36,7 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
   const [steps, setSteps] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
+  const [showNotes, setShowNotes] = useState(false);
   const [unit, setUnit] = useState<'km' | 'miles'>('km');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,6 +44,8 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isStepsMode = activityType === 'walk';
+  const route = routes.find(r => r.id === challenge?.routeId);
+  const currentType = activityTypes.find(t => t.id === activityType)!;
 
   useEffect(() => {
     const savedUnit = localStorage.getItem('trailblaze_unit') as 'km' | 'miles';
@@ -83,7 +84,6 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
         distanceKm = unit === 'miles' ? parseFloat(distance) * 1.60934 : parseFloat(distance);
       }
 
-      // 1. Create Log
       await addDoc(collection(db, 'logs'), {
         userId: auth.currentUser.uid,
         challengeId: challenge.id,
@@ -96,23 +96,21 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
         createdAt: new Date().toISOString()
       });
 
-      // 2. Update Challenge Total
       const challengeRef = doc(db, 'challenges', challenge.id);
       const challengeSnap = await getDoc(challengeRef);
       const currentTotal = challengeSnap.data()?.totalDistanceLogged || 0;
       const newTotal = currentTotal + distanceKm;
-      
+
       await updateDoc(challengeRef, {
         totalDistanceLogged: newTotal,
         status: newTotal >= challenge.totalDistanceKm ? 'completed' : 'active'
       });
 
-      // 3. Check Milestones — one per waypoint (except start)
-      const route = routes.find(r => r.id === challenge.routeId);
+      const routeData = routes.find(r => r.id === challenge.routeId);
       let firstUnlocked: { waypoint: any; waypointIndex: number } | null = null;
-      if (route) {
-        for (let i = 1; i < route.waypoints.length; i++) {
-          const wp = route.waypoints[i];
+      if (routeData) {
+        for (let i = 1; i < routeData.waypoints.length; i++) {
+          const wp = routeData.waypoints[i];
           if (currentTotal < wp.distanceFromStart && newTotal >= wp.distanceFromStart) {
             await addDoc(collection(db, 'milestones'), {
               challengeId: challenge.id,
@@ -120,23 +118,13 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
               waypointIndex: i,
               unlockedAt: new Date().toISOString()
             });
-
-            confetti({
-              particleCount: 150,
-              spread: 70,
-              origin: { y: 0.6 },
-              colors: ['#4ade80', '#f97316', '#ffffff']
-            });
-
-            if (!firstUnlocked) {
-              firstUnlocked = { waypoint: wp, waypointIndex: i };
-            }
+            confetti({ particleCount: 150, spread: 70, origin: { y: 0.6 }, colors: ['#4ade80', '#f97316', '#ffffff'] });
+            if (!firstUnlocked) firstUnlocked = { waypoint: wp, waypointIndex: i };
           }
         }
       }
 
       const challengeCompleted = newTotal >= challenge.totalDistanceKm;
-
       onLogged();
       if (firstUnlocked) onMilestoneUnlocked?.(firstUnlocked);
       if (challengeCompleted) onChallengeCompleted?.(challenge);
@@ -148,164 +136,215 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
   };
 
   return (
-    <div className="min-h-screen bg-background p-6 flex flex-col">
-      <header className="flex justify-between items-center mb-8">
-        <h1 className="text-3xl font-headline font-bold">Log Activity</h1>
-        <button onClick={onLogged} className="p-2 rounded-full hover:bg-surface-low transition-colors">
-          <X size={24} />
+    <div className="h-full bg-background flex flex-col">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 pt-5 pb-3">
+        <div>
+          <h1 className="text-2xl font-headline font-bold">Log Activity</h1>
+          {route && (
+            <p className="text-xs text-text-secondary mt-0.5">{route.name} {route.country}</p>
+          )}
+        </div>
+        <button onClick={onLogged} className="w-10 h-10 rounded-full bg-surface flex items-center justify-center text-text-secondary">
+          <X size={20} />
         </button>
-      </header>
+      </div>
 
-      <form onSubmit={handleSubmit} className="flex-1 space-y-8 pb-24">
-        {/* Activity Type */}
-        <div className="space-y-3">
-          <label className="text-xs font-bold uppercase text-text-secondary tracking-widest">Select Activity</label>
-          <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-            {activityTypes.map((type) => (
-              <button
-                key={type.id}
-                type="button"
-                onClick={() => setActivityType(type.id)}
-                className={cn(
-                  "flex-shrink-0 flex flex-col items-center justify-center w-20 h-24 rounded-2xl transition-all",
-                  activityType === type.id ? "bg-primary text-background shadow-lg shadow-primary/20" : "bg-surface border border-outline/30 text-text-secondary"
-                )}
-              >
-                <span className="text-2xl mb-1">{type.icon}</span>
-                <span className="text-[10px] font-bold uppercase">{type.label}</span>
-              </button>
-            ))}
-          </div>
+      <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-5 pb-32">
+        {/* Activity Type — full width pills */}
+        <div className="flex gap-2 mb-6">
+          {activityTypes.map((type) => (
+            <button
+              key={type.id}
+              type="button"
+              onClick={() => setActivityType(type.id)}
+              className={cn(
+                "flex-1 flex flex-col items-center justify-center py-3 rounded-2xl transition-all",
+                activityType === type.id
+                  ? "bg-primary text-background shadow-lg shadow-primary/30 scale-105"
+                  : "bg-surface border border-outline/20 text-text-secondary"
+              )}
+            >
+              <span className="text-xl">{type.icon}</span>
+              <span className="text-[9px] font-bold uppercase mt-1">{type.label}</span>
+            </button>
+          ))}
         </div>
 
-        {/* Steps (walk) or Distance (other activities) */}
-        {isStepsMode ? (
-          <div className="card p-6 space-y-4">
-            <label className="text-xs font-bold uppercase text-text-secondary tracking-widest flex items-center gap-2">
-              <Footprints size={14} /> Steps
-            </label>
-            <input
-              type="number"
-              step="1"
-              min="1"
-              required
-              value={steps}
-              onChange={(e) => setSteps(e.target.value)}
-              placeholder="0"
-              className="w-full bg-transparent border-none p-0 text-5xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/30"
-            />
-            <p className="text-xs text-text-secondary">
-              Your stride varies each time — distance is a surprise!
-            </p>
-          </div>
-        ) : (
-          <div className="card p-6 space-y-4">
-            <label className="text-xs font-bold uppercase text-text-secondary tracking-widest">Distance</label>
-            <div className="flex items-end gap-3">
+        {/* Big number input — the hero */}
+        <div className="rounded-3xl bg-surface border border-outline/20 p-6 mb-5 text-center">
+          {isStepsMode ? (
+            <>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Footprints size={14} className="text-primary" />
+                <span className="text-[10px] font-bold uppercase text-text-secondary tracking-widest">Steps</span>
+              </div>
               <input
                 type="number"
-                step="0.1"
+                step="1"
+                min="1"
                 required
-                value={distance}
-                onChange={(e) => setDistance(e.target.value)}
-                placeholder="0.0"
-                className="flex-1 bg-transparent border-none p-0 text-5xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/30"
+                value={steps}
+                onChange={(e) => setSteps(e.target.value)}
+                placeholder="0"
+                className="w-full bg-transparent border-none text-center p-0 text-6xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/20"
               />
-              <div className="flex bg-surface-low rounded-lg p-1 border border-outline/30">
+              <p className="text-[11px] text-primary/70 mt-2 font-medium">
+                Your stride varies — distance is a surprise!
+              </p>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <span className="text-[10px] font-bold uppercase text-text-secondary tracking-widest">Distance</span>
+              </div>
+              <div className="flex items-baseline justify-center gap-2">
+                <input
+                  type="number"
+                  step="0.1"
+                  required
+                  value={distance}
+                  onChange={(e) => setDistance(e.target.value)}
+                  placeholder="0.0"
+                  className="w-auto bg-transparent border-none text-center p-0 text-6xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/20"
+                  style={{ maxWidth: '200px' }}
+                />
                 <button
                   type="button"
                   onClick={handleUnitToggle}
-                  className={cn("px-3 py-1 rounded-md text-xs font-bold transition-colors", unit === 'km' ? "bg-primary text-background" : "text-text-secondary")}
+                  className="text-primary text-lg font-bold uppercase"
                 >
-                  KM
-                </button>
-                <button
-                  type="button"
-                  onClick={handleUnitToggle}
-                  className={cn("px-3 py-1 rounded-md text-xs font-bold transition-colors", unit === 'miles' ? "bg-primary text-background" : "text-text-secondary")}
-                >
-                  MI
+                  {unit}
                 </button>
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Date */}
-        <div className="card p-6 space-y-4">
-          <label className="text-xs font-bold uppercase text-text-secondary tracking-widest flex items-center gap-2">
-            <Calendar size={14} /> Date
-          </label>
-          <input
-            type="date"
-            required
-            value={date}
-            onChange={(e) => setDate(e.target.value)}
-            className="w-full bg-surface-low border-outline/30 rounded-lg p-3 text-lg font-bold outline-none focus:border-primary"
-          />
-        </div>
-
-        {/* Notes */}
-        <div className="space-y-3">
-          <label className="text-xs font-bold uppercase text-text-secondary tracking-widest flex items-center gap-2">
-            <FileText size={14} /> Notes (Optional)
-          </label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            placeholder="Describe your trail adventure..."
-            rows={3}
-            className="w-full bg-surface border border-outline/30 rounded-xl p-4 text-sm outline-none focus:border-primary transition-colors"
-          />
-        </div>
-
-        {/* Photo */}
-        <div className="space-y-3">
-          <label className="text-xs font-bold uppercase text-text-secondary tracking-widest flex items-center gap-2">
-            <Camera size={14} /> Photo (Optional)
-          </label>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            className="hidden"
-            onChange={handlePhotoSelect}
-          />
-          {photo ? (
-            <div className="relative rounded-xl overflow-hidden">
-              <img src={photo} alt="Activity" className="w-full h-40 object-cover" />
-              <button
-                type="button"
-                onClick={() => { setPhoto(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
-                className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full text-white"
-              >
-                <Trash2 size={14} />
-              </button>
-            </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full h-24 rounded-xl border border-dashed border-outline/40 flex flex-col items-center justify-center gap-2 text-text-secondary active:bg-surface-low transition-colors"
-            >
-              <Camera size={20} />
-              <span className="text-xs font-bold">Add a photo</span>
-            </button>
+            </>
           )}
         </div>
 
-        {error && <p className="text-red-400 text-sm text-center">{error}</p>}
+        {/* Date + extras row */}
+        <div className="flex gap-3 mb-5">
+          {/* Date chip */}
+          <div className="flex-1 relative">
+            <input
+              type="date"
+              required
+              value={date}
+              onChange={(e) => setDate(e.target.value)}
+              className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+            />
+            <div className="bg-surface border border-outline/20 rounded-2xl px-4 py-3 flex items-center gap-2">
+              <Calendar size={16} className="text-primary shrink-0" />
+              <span className="text-sm font-bold">
+                {date === format(new Date(), 'yyyy-MM-dd') ? 'Today' : format(new Date(date + 'T00:00:00'), 'MMM d')}
+              </span>
+              <ChevronDown size={14} className="text-text-secondary ml-auto" />
+            </div>
+          </div>
 
+          {/* Notes toggle */}
+          <button
+            type="button"
+            onClick={() => setShowNotes(!showNotes)}
+            className={cn(
+              "bg-surface border rounded-2xl px-4 py-3 flex items-center gap-2 transition-colors",
+              showNotes ? "border-primary text-primary" : "border-outline/20 text-text-secondary"
+            )}
+          >
+            <span className="text-sm">📝</span>
+            <span className="text-sm font-bold">Note</span>
+          </button>
+
+          {/* Photo button */}
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className={cn(
+              "bg-surface border rounded-2xl px-4 py-3 flex items-center gap-2 transition-colors",
+              photo ? "border-primary text-primary" : "border-outline/20 text-text-secondary"
+            )}
+          >
+            <Camera size={16} />
+          </button>
+        </div>
+
+        {/* Expandable notes */}
+        <AnimatePresence>
+          {showNotes && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-5"
+            >
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="How was your adventure today?"
+                rows={3}
+                autoFocus
+                className="w-full bg-surface border border-outline/20 rounded-2xl p-4 text-sm outline-none focus:border-primary transition-colors"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Photo preview */}
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden"
+          onChange={handlePhotoSelect}
+        />
+        <AnimatePresence>
+          {photo && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="overflow-hidden mb-5"
+            >
+              <div className="relative rounded-2xl overflow-hidden">
+                <img src={photo} alt="Activity" className="w-full h-44 object-cover" />
+                <button
+                  type="button"
+                  onClick={() => { setPhoto(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                  className="absolute top-3 right-3 p-2 bg-black/60 rounded-full text-white"
+                >
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {error && <p className="text-red-400 text-sm text-center mb-4">{error}</p>}
+      </form>
+
+      {/* Sticky submit button */}
+      <div className="absolute bottom-0 left-0 w-full p-5 pb-6 bg-gradient-to-t from-background via-background to-transparent">
         <button
           type="submit"
-          disabled={loading}
-          className="w-full btn-primary"
+          disabled={loading || (isStepsMode ? !steps : !distance)}
+          onClick={handleSubmit}
+          className={cn(
+            "w-full py-4 rounded-2xl font-bold text-base flex items-center justify-center gap-2 transition-all",
+            (isStepsMode ? steps : distance)
+              ? "bg-primary text-background shadow-lg shadow-primary/30 active:scale-[0.98]"
+              : "bg-surface border border-outline/20 text-text-secondary"
+          )}
         >
-          {loading ? 'Logging...' : 'Log It 🚀'}
-          {!loading && <Send size={20} />}
+          {loading ? (
+            <div className="w-5 h-5 border-2 border-background border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <>
+              <Send size={18} />
+              {isStepsMode ? `Log ${steps ? parseInt(steps).toLocaleString() + ' steps' : 'Steps'}` : `Log ${distance || '0'} ${unit}`}
+            </>
+          )}
         </button>
-      </form>
+      </div>
     </div>
   );
 }
