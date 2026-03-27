@@ -112,12 +112,13 @@ export function ChallengeSetup({ onComplete, onCancel, existingChallenges = [], 
 
       <div className="flex-1 overflow-y-auto pb-24">
         {step === 1 && (
-          <div className="space-y-4">
+          <div className="space-y-5">
             {routes.map((route) => {
               const existing = existingChallenges.find(c => c.routeId === route.id);
               const progress = existing
                 ? Math.round(((existing.totalDistanceLogged || 0) / (existing.totalDistanceKm || 1)) * 100)
                 : null;
+              const isSelected = selectedRoute?.id === route.id;
 
               return (
                 <button
@@ -130,42 +131,68 @@ export function ChallengeSetup({ onComplete, onCancel, existingChallenges = [], 
                     }
                   }}
                   className={cn(
-                    "w-full text-left card transition-all",
-                    selectedRoute?.id === route.id ? "border-primary ring-1 ring-primary" : "border-outline/30"
+                    "w-full text-left rounded-3xl overflow-hidden transition-all border-2",
+                    isSelected ? "border-primary shadow-lg shadow-primary/20" : "border-transparent"
                   )}
                 >
-                  <div className="h-32 relative">
+                  {/* Cover image — tall and immersive */}
+                  <div className="relative aspect-[16/9]">
                     <img
                       src={route.coverImage}
                       alt={route.name}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        e.currentTarget.src = `https://picsum.photos/seed/${route.id}/400/300`;
-                      }}
+                      onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${route.id}/800/450`; }}
                     />
-                    <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold uppercase">
-                      {route.difficulty}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+
+                    {/* Badges on the image */}
+                    <div className="absolute top-3 left-3 flex gap-2">
+                      <span className="bg-black/50 backdrop-blur-sm text-white px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase">
+                        {route.difficulty}
+                      </span>
+                      <span className="bg-primary/90 text-background px-2.5 py-1 rounded-lg text-[10px] font-bold">
+                        {route.totalDistance} km
+                      </span>
                     </div>
+
+                    {/* Selected checkmark */}
+                    {isSelected && (
+                      <div className="absolute top-3 right-3 w-7 h-7 bg-primary rounded-full flex items-center justify-center">
+                        <Check size={16} className="text-background" />
+                      </div>
+                    )}
+
+                    {/* In-progress overlay */}
                     {existing && (
-                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-1">
-                        <span className="text-primary font-bold text-sm">In Progress — {progress}%</span>
-                        <span className="text-white text-xs font-bold uppercase tracking-widest">Tap to Resume →</span>
+                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-2">
+                        <span className="text-primary font-bold text-lg">In Progress — {progress}%</span>
+                        <div className="w-2/3 h-1.5 bg-white/20 rounded-full overflow-hidden">
+                          <div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
+                        </div>
+                        <span className="text-white/80 text-xs font-bold uppercase tracking-widest mt-1">Tap to Resume</span>
                       </div>
                     )}
-                  </div>
-                  <div className="p-4">
-                    <div className="flex justify-between items-start mb-1">
-                      <h3 className="text-lg font-bold">{route.name} {route.country}</h3>
-                      <span className="text-primary font-bold">{route.totalDistance} km</span>
+
+                    {/* Route name on image */}
+                    <div className="absolute bottom-3 left-4 right-4">
+                      <h3 className="text-xl font-headline font-bold text-white">{route.name}</h3>
+                      <p className="text-white/70 text-sm">{route.country}</p>
                     </div>
-                    {existing ? (
-                      <div className="h-1.5 w-full bg-outline/20 rounded-full overflow-hidden mt-2">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
-                      </div>
-                    ) : (
-                      <p className="text-sm text-text-secondary line-clamp-2">{route.description}</p>
-                    )}
+                  </div>
+
+                  {/* Details below image */}
+                  <div className="bg-surface p-4 space-y-3">
+                    <p className="text-sm text-text-secondary leading-relaxed">
+                      {route.description}
+                    </p>
+                    <div className="flex items-center gap-3 text-[11px] text-text-secondary">
+                      <span className="flex items-center gap-1">🗺 {route.postcardsCount} postcards</span>
+                      <span className="w-1 h-1 rounded-full bg-outline/50" />
+                      <span>{route.estimatedDays}</span>
+                      <span className="w-1 h-1 rounded-full bg-outline/50" />
+                      <span>{route.waypoints.length} stops</span>
+                    </div>
                   </div>
                 </button>
               );
