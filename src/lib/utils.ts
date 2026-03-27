@@ -23,12 +23,14 @@ export function calculateStreak(logs: { date: string }[]): { current: number; lo
   // Get unique sorted dates (newest first)
   const uniqueDays = [...new Set(logs.map(l => l.date))].sort().reverse();
 
-  // Check if the streak includes today or yesterday (still alive)
+  // Check if the streak includes today or yesterday (LOCAL time, not UTC)
   const today = new Date();
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  const todayStr = today.toISOString().slice(0, 10);
-  const yesterdayStr = yesterday.toISOString().slice(0, 10);
+  const pad = (n: number) => n.toString().padStart(2, '0');
+  const toLocal = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const todayStr = toLocal(today);
+  const yesterdayStr = toLocal(yesterday);
 
   let current = 0;
   let longest = 0;
