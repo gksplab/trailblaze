@@ -59,12 +59,13 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
   }, [isLoaded, loadError]);
 
   const [map, setMap] = useState<google.maps.Map | null>(null);
+  const streetViewRef = useRef<HTMLDivElement>(null);
+  const panoramaRef = useRef<google.maps.StreetViewPanorama | null>(null);
   const [selectedWaypoint, setSelectedWaypoint] = useState<Waypoint | null>(null);
   const [userLogs, setUserLogs] = useState<any[]>([]);
   const [partnerLogs, setPartnerLogs] = useState<any[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
-  const [walkingPath, setWalkingPath] = useState<google.maps.LatLngLiteral[]>([]);
 
   const route = useMemo(() => routes.find(r => r.id === challenge?.routeId), [challenge]);
   
@@ -172,9 +173,35 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
       if (wp.distanceFromStart <= totalUserDistance) nearestWp = wp;
     }
 
-    const url = `https://maps.googleapis.com/maps/api/streetview?size=800x400&location=${pos.lat},${pos.lng}&heading=${Math.round(heading)}&pitch=10&fov=90&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`;
-    return { url, nearestWp };
+    return { pos, heading, nearestWp };
   }, [route, userPos, totalUserDistance]);
+
+  // Interactive 360° Street View panorama
+  useEffect(() => {
+    if (!streetViewRef.current || !isLoaded || !streetViewData) return;
+
+    const pos = { lat: streetViewData.pos.lat, lng: streetViewData.pos.lng };
+    const pov = { heading: streetViewData.heading, pitch: 5 };
+
+    if (!panoramaRef.current) {
+      panoramaRef.current = new google.maps.StreetViewPanorama(streetViewRef.current, {
+        position: pos,
+        pov,
+        disableDefaultUI: true,
+        linksControl: false,
+        zoomControl: false,
+        addressControl: false,
+        fullscreenControl: false,
+        motionTracking: false,
+        motionTrackingControl: false,
+        enableCloseButton: false,
+        clickToGo: false,
+      });
+    } else {
+      panoramaRef.current.setPosition(pos);
+      panoramaRef.current.setPov(pov);
+    }
+  }, [isLoaded, streetViewData]);
 
   const onLoad = (map: google.maps.Map) => {
     setMap(map);
@@ -185,34 +212,6 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
     }
   };
 
-  // Fetch actual walking directions between waypoints
-  useEffect(() => {
-    if (!map || !route || !isLoaded || route.waypoints.length < 2) return;
-    setWalkingPath([]); // reset on route change
-
-    const wps = route.waypoints;
-    const directionsService = new google.maps.DirectionsService();
-    directionsService.route({
-      origin: { lat: wps[0].lat, lng: wps[0].lng },
-      destination: { lat: wps[wps.length - 1].lat, lng: wps[wps.length - 1].lng },
-      waypoints: wps.slice(1, -1).map(wp => ({
-        location: { lat: wp.lat, lng: wp.lng },
-        stopover: true
-      })),
-      travelMode: google.maps.TravelMode.WALKING,
-      optimizeWaypoints: false
-    }).then(result => {
-      const path: google.maps.LatLngLiteral[] = [];
-      result.routes[0].legs.forEach(leg => {
-        leg.steps.forEach(step => {
-          step.path.forEach(p => path.push({ lat: p.lat(), lng: p.lng() }));
-        });
-      });
-      setWalkingPath(path);
-    }).catch((err) => {
-      console.warn('Directions API failed (enable it in Google Cloud Console for walking paths):', err?.message || err);
-    });
-  }, [map, route?.id, isLoaded]);
 
   if (loadError) {
     return (
@@ -243,24 +242,12 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
   return (
     <div className="h-full flex flex-col relative">
 
-      {/* ── Street View strip (top 1/3) ── */}
+      {/* ── Interactive 360° Street View (top 1/3) ── */}
       <div className="relative shrink-0 overflow-hidden" style={{ height: '33%' }}>
-        {streetViewData ? (
-          <img
-            src={streetViewData.url}
-            alt="Street view"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover"
-            onError={(e) => {
-              e.currentTarget.src = `https://picsum.photos/seed/${route?.id}/800/400`;
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-surface animate-pulse" />
-        )}
+        <div ref={streetViewRef} className="w-full h-full" />
 
-        {/* bottom gradient bleeds into map */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 via-transparent to-black/60 pointer-events-none" />
+        {/* gradient overlays — pointer-events-none so drag still works on panorama */}
+        <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/50 pointer-events-none" />
 
         {/* Challenge pill */}
         {challenge && (
@@ -298,13 +285,10 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
           onLoad={onLoad}
           options={mapOptions}
         >
-          {route && route.waypoints && route.waypoints.length > 0 && (() => {
-            const polyPath = walkingPath.length > 0
-              ? walkingPath
-              : route.waypoints.map(wp => ({ lat: wp.lat, lng: wp.lng }));
-            return (<>
-              <Polyline path={polyPath} options={{ strokeColor: "#4ade80", strokeOpacity: 0.2, strokeWeight: 10 }} />
-              <Polyline path={polyPath} options={{ strokeColor: "#4ade80", strokeOpacity: 1, strokeWeight: 4 }} />
+          {route && route.path && route.path.length > 0 && (
+            <>
+              <Polyline path={route.path} options={{ strokeColor: "#4ade80", strokeOpacity: 0.2, strokeWeight: 10 }} />
+              <Polyline path={route.path} options={{ strokeColor: "#4ade80", strokeOpacity: 1, strokeWeight: 4 }} />
 
               {route.waypoints.map((wp, idx) => (
                 <MarkerF
@@ -360,8 +344,8 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
                   </div>
                 </InfoWindow>
               )}
-            </>);
-          })()}
+            </>
+          )}
         </GoogleMap>
 
         {/* Bottom Sheet Drawer */}

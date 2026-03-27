@@ -128,10 +128,40 @@ export const routes: Route[] = [
     difficulty: "Easy",
     estimatedDays: "7–10 days",
     postcardsCount: 11,
-    // Route: Centraal → SW to Anne Frank → S through Nine Streets →
-    // S to Leidseplein → S to Rijksmuseum → NE to Bloemenmarkt →
-    // E to Rembrandtplein → NE to Waterlooplein → E to Artis →
-    // N to NEMO → W to Westerkerk → NW to Jordaan (full loop)
+    // Clean polyline: clockwise canal-ring loop — west down Prinsengracht,
+    // south past museums, east along Amstel, north up to NEMO, west to Jordaan
+    path: [
+      { lat: 52.3791, lng: 4.9003 }, // Centraal
+      { lat: 52.3780, lng: 4.8950 }, // west along Prins Hendrikkade
+      { lat: 52.3765, lng: 4.8900 },
+      { lat: 52.3752, lng: 4.8840 }, // Anne Frank House
+      { lat: 52.3730, lng: 4.8845 }, // south on Prinsengracht
+      { lat: 52.3710, lng: 4.8848 }, // Nine Streets
+      { lat: 52.3680, lng: 4.8842 },
+      { lat: 52.3642, lng: 4.8838 }, // Leidseplein
+      { lat: 52.3620, lng: 4.8845 },
+      { lat: 52.3600, lng: 4.8852 }, // Rijksmuseum
+      { lat: 52.3595, lng: 4.8880 }, // Stadhouderskade east
+      { lat: 52.3610, lng: 4.8910 },
+      { lat: 52.3640, lng: 4.8930 },
+      { lat: 52.3668, lng: 4.8936 }, // Bloemenmarkt
+      { lat: 52.3665, lng: 4.8960 },
+      { lat: 52.3662, lng: 4.8975 }, // Rembrandtplein
+      { lat: 52.3670, lng: 4.9010 },
+      { lat: 52.3685, lng: 4.9044 }, // Waterlooplein
+      { lat: 52.3678, lng: 4.9100 },
+      { lat: 52.3662, lng: 4.9162 }, // Artis
+      { lat: 52.3690, lng: 4.9155 }, // north
+      { lat: 52.3720, lng: 4.9140 },
+      { lat: 52.3740, lng: 4.9122 }, // NEMO
+      { lat: 52.3755, lng: 4.9080 }, // west along waterfront
+      { lat: 52.3760, lng: 4.9020 },
+      { lat: 52.3755, lng: 4.8960 },
+      { lat: 52.3750, lng: 4.8900 },
+      { lat: 52.3745, lng: 4.8848 }, // Westerkerk
+      { lat: 52.3755, lng: 4.8820 },
+      { lat: 52.3770, lng: 4.8780 }, // Jordaan
+    ],
     waypoints: [
       {
         lat: 52.3791, lng: 4.9003, name: "Amsterdam Centraal", distanceFromStart: 0, streetViewHeading: 180,
@@ -204,9 +234,38 @@ export const routes: Route[] = [
     difficulty: "Challenging",
     estimatedDays: "10–21 days",
     postcardsCount: 11,
-    // Route: Tahrir → E into Islamic Cairo → S to Citadel → SW to
-    // Ibn Tulun → S to Old Cairo → S to Fustat → SW along Nile →
-    // W across to Giza → through pyramid complex
+    // Clean polyline: Tahrir east to Islamic Cairo, south through Citadel /
+    // Old Cairo, then west across the Nile to Giza plateau
+    path: [
+      { lat: 30.0444, lng: 31.2357 }, // Tahrir Square
+      { lat: 30.0460, lng: 31.2450 }, // east toward Islamic Cairo
+      { lat: 30.0465, lng: 31.2550 },
+      { lat: 30.0473, lng: 31.2623 }, // Khan el-Khalili
+      { lat: 30.0459, lng: 31.2631 }, // Al-Azhar
+      { lat: 30.0400, lng: 31.2620 }, // south
+      { lat: 30.0340, lng: 31.2610 },
+      { lat: 30.0285, lng: 31.2598 }, // Citadel
+      { lat: 30.0255, lng: 31.2545 }, // southwest
+      { lat: 30.0226, lng: 31.2493 }, // Ibn Tulun
+      { lat: 30.0170, lng: 31.2420 },
+      { lat: 30.0110, lng: 31.2350 },
+      { lat: 30.0053, lng: 31.2296 }, // Old Cairo
+      { lat: 30.0015, lng: 31.2340 },
+      { lat: 29.9980, lng: 31.2398 }, // Fustat
+      { lat: 29.9920, lng: 31.2360 }, // south along Nile
+      { lat: 29.9850, lng: 31.2300 }, // Nile Corniche
+      { lat: 29.9860, lng: 31.2150 }, // heading west
+      { lat: 29.9865, lng: 31.2000 },
+      { lat: 29.9870, lng: 31.1850 },
+      { lat: 29.9870, lng: 31.1700 }, // Giza Plateau
+      { lat: 29.9840, lng: 31.1550 },
+      { lat: 29.9800, lng: 31.1400 },
+      { lat: 29.9779, lng: 31.1336 }, // Solar Boat
+      { lat: 29.9765, lng: 31.1360 },
+      { lat: 29.9753, lng: 31.1376 }, // Sphinx
+      { lat: 29.9770, lng: 31.1345 },
+      { lat: 29.9792, lng: 31.1320 }, // Great Pyramid
+    ],
     waypoints: [
       {
         lat: 30.0444, lng: 31.2357, name: "Tahrir Square", distanceFromStart: 0, streetViewHeading: 0,
