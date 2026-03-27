@@ -61,6 +61,7 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const streetViewRef = useRef<HTMLDivElement>(null);
   const panoramaRef = useRef<google.maps.StreetViewPanorama | null>(null);
+  const [streetViewAvailable, setStreetViewAvailable] = useState(true);
   const [selectedWaypoint, setSelectedWaypoint] = useState<Waypoint | null>(null);
   const [userLogs, setUserLogs] = useState<any[]>([]);
   const [partnerLogs, setPartnerLogs] = useState<any[]>([]);
@@ -176,31 +177,40 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
     return { pos, heading, nearestWp };
   }, [route, userPos, totalUserDistance]);
 
-  // Interactive 360° Street View panorama
+  // Interactive 360° Street View panorama — check coverage first to avoid errors
   useEffect(() => {
     if (!streetViewRef.current || !isLoaded || !streetViewData) return;
 
     const pos = { lat: streetViewData.pos.lat, lng: streetViewData.pos.lng };
     const pov = { heading: streetViewData.heading, pitch: 5 };
 
-    if (!panoramaRef.current) {
-      panoramaRef.current = new google.maps.StreetViewPanorama(streetViewRef.current, {
-        position: pos,
-        pov,
-        disableDefaultUI: true,
-        linksControl: false,
-        zoomControl: false,
-        addressControl: false,
-        fullscreenControl: false,
-        motionTracking: false,
-        motionTrackingControl: false,
-        enableCloseButton: false,
-        clickToGo: false,
-      });
-    } else {
-      panoramaRef.current.setPosition(pos);
-      panoramaRef.current.setPov(pov);
-    }
+    const svService = new google.maps.StreetViewService();
+    svService.getPanorama({ location: pos, radius: 100 }, (data, status) => {
+      if (status !== google.maps.StreetViewStatus.OK) {
+        setStreetViewAvailable(false);
+        return;
+      }
+      setStreetViewAvailable(true);
+
+      if (!panoramaRef.current) {
+        panoramaRef.current = new google.maps.StreetViewPanorama(streetViewRef.current!, {
+          position: data?.location?.latLng || pos,
+          pov,
+          disableDefaultUI: true,
+          linksControl: false,
+          zoomControl: false,
+          addressControl: false,
+          fullscreenControl: false,
+          motionTracking: false,
+          motionTrackingControl: false,
+          enableCloseButton: false,
+          clickToGo: false,
+        });
+      } else {
+        panoramaRef.current.setPosition(data?.location?.latLng || pos);
+        panoramaRef.current.setPov(pov);
+      }
+    });
   }, [isLoaded, streetViewData]);
 
   const onLoad = (map: google.maps.Map) => {
@@ -244,7 +254,16 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
 
       {/* ── Interactive 360° Street View (top 1/3) ── */}
       <div className="relative shrink-0 overflow-hidden" style={{ height: '33%' }}>
-        <div ref={streetViewRef} className="w-full h-full" />
+        <div ref={streetViewRef} className={cn("w-full h-full", !streetViewAvailable && "hidden")} />
+        {!streetViewAvailable && streetViewData && (
+          <img
+            src={`https://maps.googleapis.com/maps/api/streetview?size=800x400&location=${streetViewData.pos.lat},${streetViewData.pos.lng}&heading=${Math.round(streetViewData.heading)}&pitch=10&fov=90&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
+            alt="Street view"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover"
+            onError={(e) => { e.currentTarget.src = route?.coverImage || ''; }}
+          />
+        )}
 
         {/* gradient overlays — pointer-events-none so drag still works on panorama */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/10 via-transparent to-black/50 pointer-events-none" />
