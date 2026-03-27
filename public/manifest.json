@@ -9,12 +9,12 @@
   "orientation": "portrait",
   "icons": [
     {
-      "src": "https://picsum.photos/seed/trailblaze/192/192",
+      "src": "/images/icon-192.png",
       "sizes": "192x192",
       "type": "image/png"
     },
     {
-      "src": "https://picsum.photos/seed/trailblaze/512/512",
+      "src": "/images/icon-512.png",
       "sizes": "512x512",
       "type": "image/png"
     }
