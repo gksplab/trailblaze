@@ -2,15 +2,18 @@ import React, { useState } from 'react';
 import { routes, Route } from '../lib/routes';
 import { auth, db } from '../lib/firebase';
 import { collection, addDoc, query, where, getDocs, updateDoc, doc } from 'firebase/firestore';
-import { Check, ChevronRight, Users, User, Calendar as CalendarIcon } from 'lucide-react';
+import { Check, ChevronRight, Users, User, Calendar as CalendarIcon, X } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { format, addDays } from 'date-fns';
 
 interface Props {
   onComplete: () => void;
+  onCancel?: () => void;
+  existingChallenges?: any[];
+  onResumeChallenge?: (challenge: any) => void;
 }
 
-export function ChallengeSetup({ onComplete }: Props) {
+export function ChallengeSetup({ onComplete, onCancel, existingChallenges = [], onResumeChallenge }: Props) {
   const [step, setStep] = useState(1);
   const [selectedRoute, setSelectedRoute] = useState<Route | null>(null);
   const [mode, setMode] = useState<'solo' | 'partner' | null>(null);
@@ -81,16 +84,23 @@ export function ChallengeSetup({ onComplete }: Props) {
   return (
     <div className="min-h-screen bg-background p-6 flex flex-col">
       <header className="mb-8">
-        <div className="flex gap-2 mb-4">
-          {[1, 2, 3].map((s) => (
-            <div
-              key={s}
-              className={cn(
-                "h-1 flex-1 rounded-full transition-colors",
-                step >= s ? "bg-primary" : "bg-outline/30"
-              )}
-            />
-          ))}
+        <div className="flex items-center gap-3 mb-4">
+          <div className="flex gap-2 flex-1">
+            {[1, 2, 3].map((s) => (
+              <div
+                key={s}
+                className={cn(
+                  "h-1 flex-1 rounded-full transition-colors",
+                  step >= s ? "bg-primary" : "bg-outline/30"
+                )}
+              />
+            ))}
+          </div>
+          {onCancel && (
+            <button onClick={onCancel} className="p-1 text-text-secondary shrink-0">
+              <X size={20} />
+            </button>
+          )}
         </div>
         <h1 className="text-3xl font-headline font-bold">
           {step === 1 && "Pick a Route"}
@@ -102,38 +112,63 @@ export function ChallengeSetup({ onComplete }: Props) {
       <div className="flex-1 overflow-y-auto pb-24">
         {step === 1 && (
           <div className="space-y-4">
-            {routes.map((route) => (
-              <button
-                key={route.id}
-                onClick={() => setSelectedRoute(route)}
-                className={cn(
-                  "w-full text-left card transition-all",
-                  selectedRoute?.id === route.id ? "border-primary ring-1 ring-primary" : "border-outline/30"
-                )}
-              >
-                <div className="h-32 relative">
-                  <img
-                    src={`https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${route.waypoints[0].lat},${route.waypoints[0].lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
-                    alt={route.name}
-                    className="w-full h-full object-cover"
-                    referrerPolicy="no-referrer"
-                    onError={(e) => {
-                      e.currentTarget.src = `https://picsum.photos/seed/${route.id}/400/300`;
-                    }}
-                  />
-                  <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold uppercase">
-                    {route.difficulty}
+            {routes.map((route) => {
+              const existing = existingChallenges.find(c => c.routeId === route.id);
+              const progress = existing
+                ? Math.round(((existing.totalDistanceLogged || 0) / (existing.totalDistanceKm || 1)) * 100)
+                : null;
+
+              return (
+                <button
+                  key={route.id}
+                  onClick={() => {
+                    if (existing && onResumeChallenge) {
+                      onResumeChallenge(existing);
+                    } else {
+                      setSelectedRoute(route);
+                    }
+                  }}
+                  className={cn(
+                    "w-full text-left card transition-all",
+                    selectedRoute?.id === route.id ? "border-primary ring-1 ring-primary" : "border-outline/30"
+                  )}
+                >
+                  <div className="h-32 relative">
+                    <img
+                      src={`https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${route.waypoints[0].lat},${route.waypoints[0].lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
+                      alt={route.name}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                      onError={(e) => {
+                        e.currentTarget.src = `https://picsum.photos/seed/${route.id}/400/300`;
+                      }}
+                    />
+                    <div className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm px-2 py-1 rounded text-[10px] font-bold uppercase">
+                      {route.difficulty}
+                    </div>
+                    {existing && (
+                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center gap-1">
+                        <span className="text-primary font-bold text-sm">In Progress — {progress}%</span>
+                        <span className="text-white text-xs font-bold uppercase tracking-widest">Tap to Resume →</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-                <div className="p-4">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="text-lg font-bold">{route.name} {route.country}</h3>
-                    <span className="text-primary font-bold">{route.totalDistance} km</span>
+                  <div className="p-4">
+                    <div className="flex justify-between items-start mb-1">
+                      <h3 className="text-lg font-bold">{route.name} {route.country}</h3>
+                      <span className="text-primary font-bold">{route.totalDistance} km</span>
+                    </div>
+                    {existing ? (
+                      <div className="h-1.5 w-full bg-outline/20 rounded-full overflow-hidden mt-2">
+                        <div className="h-full bg-primary rounded-full" style={{ width: `${progress}%` }} />
+                      </div>
+                    ) : (
+                      <p className="text-sm text-text-secondary line-clamp-2">{route.description}</p>
+                    )}
                   </div>
-                  <p className="text-sm text-text-secondary line-clamp-2">{route.description}</p>
-                </div>
-              </button>
-            ))}
+                </button>
+              );
+            })}
           </div>
         )}
 

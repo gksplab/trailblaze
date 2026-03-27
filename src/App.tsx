@@ -10,7 +10,7 @@ import { doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, lim
 import { routes, Route, Waypoint } from './lib/routes';
 import { Map, LogActivity, Postcards, Partner, Profile, Auth, ChallengeSetup } from './components';
 import { ErrorBoundary } from './components/ErrorBoundary';
-import { MapPin, History, Trophy, Users, User as UserIcon, Plus } from 'lucide-react';
+import { MapPin, History, Trophy, Users, User as UserIcon, Plus, X, Share2 } from 'lucide-react';
 import { cn } from './lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -19,64 +19,63 @@ type Tab = 'map' | 'log' | 'postcards' | 'partner' | 'profile';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<any>(null);
-  const [activeChallenge, setActiveChallenge] = useState<any>(null);
+  const [allChallenges, setAllChallenges] = useState<any[]>([]);
+  const [selectedChallengeId, setSelectedChallengeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<Tab>('map');
   const [showSetup, setShowSetup] = useState(false);
+  const [unlockedPostcard, setUnlockedPostcard] = useState<{ waypoint: any; waypointIndex: number } | null>(null);
+
+  const activeChallenge = useMemo(
+    () => allChallenges.find(c => c.id === selectedChallengeId) || allChallenges[0] || null,
+    [allChallenges, selectedChallengeId]
+  );
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
       setUser(u);
       if (u) {
-        // Fetch profile
+        // Listen to profile in real-time so unit/name changes propagate immediately
         const profileRef = doc(db, 'users', u.uid);
-        const profileSnap = await getDoc(profileRef);
-        if (profileSnap.exists()) {
-          setProfile(profileSnap.data());
-        }
-
-        // Listen for active challenge
-        const challengesQuery = query(
-          collection(db, 'challenges'),
-          where('status', '==', 'active'),
-          where('creatorId', '==', u.uid)
-        );
-        
-        const partnerQuery = query(
-          collection(db, 'challenges'),
-          where('status', '==', 'active'),
-          where('partnerId', '==', u.uid)
-        );
-
-        const unsubChallenges = onSnapshot(challengesQuery, (snap) => {
-          if (!snap.empty) {
-            setActiveChallenge({ id: snap.docs[0].id, ...snap.docs[0].data() });
-            setShowSetup(false);
-          } else {
-            // Check partner challenges
-            const unsubPartner = onSnapshot(partnerQuery, (pSnap) => {
-              if (!pSnap.empty) {
-                setActiveChallenge({ id: pSnap.docs[0].id, ...pSnap.docs[0].data() });
-                setShowSetup(false);
-              } else {
-                setActiveChallenge(null);
-                setShowSetup(true);
-              }
-            }, (error) => {
-              handleFirestoreError(error, OperationType.GET, 'challenges');
-            });
-            // Note: This cleanup is tricky because it's inside another listener.
-            // In a real app, we might want to use a more robust state management.
-          }
-        }, (error) => {
-          handleFirestoreError(error, OperationType.GET, 'challenges');
+        onSnapshot(profileRef, (snap) => {
+          if (snap.exists()) setProfile(snap.data());
         });
 
+        // Fetch all active challenges (created + joined) with two parallel listeners
+        let creatorList: any[] = [];
+        let partnerList: any[] = [];
+
+        const merge = (creator: any[], partner: any[]) => {
+          const combined = [...creator, ...partner];
+          // deduplicate by id
+          const unique = combined.filter((c, i, arr) => arr.findIndex(x => x.id === c.id) === i);
+          setAllChallenges(unique);
+          setShowSetup(unique.length === 0);
+        };
+
+        const unsubCreator = onSnapshot(
+          query(collection(db, 'challenges'), where('status', '==', 'active'), where('creatorId', '==', u.uid)),
+          (snap) => {
+            creatorList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            merge(creatorList, partnerList);
+          },
+          (error) => handleFirestoreError(error, OperationType.GET, 'challenges')
+        );
+
+        const unsubPartner = onSnapshot(
+          query(collection(db, 'challenges'), where('status', '==', 'active'), where('partnerId', '==', u.uid)),
+          (snap) => {
+            partnerList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            merge(creatorList, partnerList);
+          },
+          (error) => handleFirestoreError(error, OperationType.GET, 'challenges')
+        );
+
         setLoading(false);
-        return () => unsubChallenges();
+        return () => { unsubCreator(); unsubPartner(); };
       } else {
         setProfile(null);
-        setActiveChallenge(null);
+        setAllChallenges([]);
         setLoading(false);
       }
     });
@@ -100,17 +99,38 @@ export default function App() {
   }
 
   if (showSetup) {
-    return <ChallengeSetup onComplete={() => setShowSetup(false)} />;
+    return (
+      <ChallengeSetup
+        onComplete={() => setShowSetup(false)}
+        onCancel={allChallenges.length > 0 ? () => setShowSetup(false) : undefined}
+        existingChallenges={allChallenges}
+        onResumeChallenge={(c) => { setSelectedChallengeId(c.id); setShowSetup(false); }}
+      />
+    );
   }
 
   const renderTab = () => {
     switch (activeTab) {
       case 'map':
-        return <Map challenge={activeChallenge} profile={profile} />;
+        return (
+          <Map
+            challenge={activeChallenge}
+            profile={profile}
+            allChallenges={allChallenges}
+            onSelectChallenge={(c) => setSelectedChallengeId(c.id)}
+            onNewChallenge={() => setShowSetup(true)}
+          />
+        );
       case 'log':
-        return <LogActivity challenge={activeChallenge} onLogged={() => setActiveTab('map')} />;
+        return (
+          <LogActivity
+            challenge={activeChallenge}
+            onLogged={() => setActiveTab('map')}
+            onMilestoneUnlocked={(data) => setUnlockedPostcard(data)}
+          />
+        );
       case 'postcards':
-        return <Postcards challenge={activeChallenge} />;
+        return <Postcards challenge={activeChallenge} profile={profile} />;
       case 'partner':
         return <Partner challenge={activeChallenge} profile={profile} />;
       case 'profile':
@@ -175,6 +195,83 @@ export default function App() {
             <span className="text-[10px] font-bold uppercase">Profile</span>
           </button>
         </nav>
+        {/* Milestone postcard pop-up */}
+        <AnimatePresence>
+          {unlockedPostcard && (() => {
+            const route = routes.find(r => r.id === activeChallenge?.routeId);
+            const { waypoint } = unlockedPostcard;
+            const streetViewUrl = `https://maps.googleapis.com/maps/api/streetview?size=600x400&location=${waypoint.lat},${waypoint.lng}&fov=90&heading=${waypoint.streetViewHeading ?? 90}&pitch=10&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`;
+            return (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+              >
+                <motion.div
+                  initial={{ scale: 0.85, y: 40, rotateY: 90 }}
+                  animate={{ scale: 1, y: 0, rotateY: 0 }}
+                  exit={{ scale: 0.85, y: 40, opacity: 0 }}
+                  transition={{ type: 'spring', damping: 18, stiffness: 200 }}
+                  className="w-full max-w-md bg-surface rounded-3xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col"
+                  style={{ perspective: 1000 }}
+                >
+                  <div className="relative aspect-video shrink-0">
+                    <img
+                      src={streetViewUrl}
+                      alt={waypoint.name}
+                      referrerPolicy="no-referrer"
+                      className="w-full h-full object-cover"
+                      onError={(e) => { e.currentTarget.src = `https://picsum.photos/seed/${waypoint.name}/600/400`; }}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
+                    <button
+                      onClick={() => setUnlockedPostcard(null)}
+                      className="absolute top-4 right-4 p-2 bg-black/50 rounded-full text-white"
+                    >
+                      <X size={20} />
+                    </button>
+                    <div className="absolute top-4 left-4 bg-primary text-background px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                      Postcard Unlocked!
+                    </div>
+                    <div className="absolute bottom-4 left-4 bg-black/60 text-white px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest">
+                      {waypoint.distanceFromStart} km reached
+                    </div>
+                  </div>
+
+                  <div className="p-6 space-y-4 overflow-y-auto">
+                    <div>
+                      <p className="text-xs font-bold uppercase text-primary tracking-widest mb-1">{route?.name} {route?.country}</p>
+                      <h2 className="text-2xl font-headline font-bold">{waypoint.name}</h2>
+                      <p className="text-text-secondary text-sm mt-2 leading-relaxed">{waypoint.postcard}</p>
+                    </div>
+                    <div className="flex gap-3">
+                      <button
+                        onClick={async () => {
+                          const text = `I just reached ${waypoint.name} on the ${route?.name} trail on Trailblaze! 🏔️ #Trailblaze`;
+                          if (navigator.share) {
+                            await navigator.share({ title: 'Trailblaze Postcard', text, url: window.location.origin });
+                          } else {
+                            navigator.clipboard.writeText(text);
+                          }
+                        }}
+                        className="flex-1 btn-primary py-3"
+                      >
+                        <Share2 size={18} /> Share
+                      </button>
+                      <button
+                        onClick={() => setUnlockedPostcard(null)}
+                        className="flex-1 py-3 rounded-full border border-outline/30 text-text-secondary font-bold hover:border-primary hover:text-primary transition-colors"
+                      >
+                        Continue
+                      </button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>
       </div>
     </ErrorBoundary>
   );

@@ -11,6 +11,7 @@ import confetti from 'canvas-confetti';
 interface Props {
   challenge: any;
   onLogged: () => void;
+  onMilestoneUnlocked?: (data: { waypoint: any; waypointIndex: number }) => void;
 }
 
 const activityTypes = [
@@ -21,7 +22,7 @@ const activityTypes = [
   { id: 'other', label: 'Other', icon: '⚡' }
 ];
 
-export function LogActivity({ challenge, onLogged }: Props) {
+export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props) {
   const [activityType, setActivityType] = useState('walk');
   const [distance, setDistance] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
@@ -72,26 +73,17 @@ export function LogActivity({ challenge, onLogged }: Props) {
         status: newTotal >= challenge.totalDistanceKm ? 'completed' : 'active'
       });
 
-      // 3. Check Milestones
+      // 3. Check Milestones — one per waypoint (except start)
       const route = routes.find(r => r.id === challenge.routeId);
+      let firstUnlocked: { waypoint: any; waypointIndex: number } | null = null;
       if (route) {
-        const thresholds = [20, 40, 60, 80, 100];
-        const oldPercent = (currentTotal / challenge.totalDistanceKm) * 100;
-        const newPercent = (newTotal / challenge.totalDistanceKm) * 100;
-
-        for (const t of thresholds) {
-          if (oldPercent < t && newPercent >= t) {
-            // Milestone unlocked!
-            const waypointIndex = Math.min(
-              route.waypoints.length - 1,
-              Math.floor((t / 100) * (route.waypoints.length - 1))
-            );
-
+        for (let i = 1; i < route.waypoints.length; i++) {
+          const wp = route.waypoints[i];
+          if (currentTotal < wp.distanceFromStart && newTotal >= wp.distanceFromStart) {
             await addDoc(collection(db, 'milestones'), {
               challengeId: challenge.id,
               userId: auth.currentUser.uid,
-              percentage: t,
-              waypointIndex,
+              waypointIndex: i,
               unlockedAt: new Date().toISOString()
             });
 
@@ -101,11 +93,16 @@ export function LogActivity({ challenge, onLogged }: Props) {
               origin: { y: 0.6 },
               colors: ['#4ade80', '#f97316', '#ffffff']
             });
+
+            if (!firstUnlocked) {
+              firstUnlocked = { waypoint: wp, waypointIndex: i };
+            }
           }
         }
       }
 
       onLogged();
+      if (firstUnlocked) onMilestoneUnlocked?.(firstUnlocked);
     } catch (err: any) {
       setError(err.message);
     } finally {
