@@ -1,10 +1,7 @@
-const CACHE_NAME = 'trailblaze-v1';
+const CACHE_NAME = 'trailblaze-v2';
 const ASSETS = [
   '/',
   '/index.html',
-  '/src/main.tsx',
-  '/src/App.tsx',
-  '/src/index.css',
   '/manifest.json'
 ];
 
@@ -12,16 +9,46 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS))
   );
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    caches.keys().then((keys) =>
+      Promise.all(keys.filter((k) => k !== CACHE_NAME).map((k) => caches.delete(k)))
+    )
+  );
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith(caches.match('/index.html'));
+  const { request } = event;
+
+  // Let API calls, Street View, and Firestore pass through — never cache
+  if (
+    request.url.includes('googleapis.com') ||
+    request.url.includes('firestore') ||
+    request.url.includes('wikimedia.org')
+  ) {
     return;
   }
+
+  // For navigation requests, serve index.html (SPA)
+  if (request.mode === 'navigate') {
+    event.respondWith(
+      fetch(request).catch(() => caches.match('/index.html'))
+    );
+    return;
+  }
+
+  // For static assets: network first, fall back to cache
   event.respondWith(
-    caches.match(event.request).then((response) => {
-      return response || fetch(event.request);
-    })
+    fetch(request)
+      .then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        return response;
+      })
+      .catch(() => caches.match(request))
   );
 });
