@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
-import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, getDocs } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, getDocs, deleteDoc, writeBatch, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
 import { formatDistance, getInitials } from '../lib/utils';
+import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
-import { LogOut, Ruler, Trophy, ChevronRight } from 'lucide-react';
+import { LogOut, Ruler, Trophy, ChevronRight, RotateCcw, AlertTriangle } from 'lucide-react';
 
 interface Props {
   profile: any;
@@ -12,6 +13,8 @@ interface Props {
 export function Profile({ profile }: Props) {
   const [completedChallenges, setCompletedChallenges] = useState<any[]>([]);
   const [totalDistance, setTotalDistance] = useState(0);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
 
   useEffect(() => {
     if (!auth.currentUser) return;
@@ -54,6 +57,41 @@ export function Profile({ profile }: Props) {
       await auth.signOut();
     } catch (err) {
       console.error('Logout failed:', err);
+    }
+  };
+
+  const handleResetProgress = async () => {
+    if (!auth.currentUser) return;
+    setResetting(true);
+    try {
+      const uid = auth.currentUser.uid;
+      const batch = writeBatch(db);
+
+      // Delete all user's logs
+      const logsSnap = await getDocs(query(collection(db, 'logs'), where('userId', '==', uid)));
+      logsSnap.docs.forEach(d => batch.delete(d.ref));
+
+      // Delete all user's milestones
+      const msSnap = await getDocs(query(collection(db, 'milestones'), where('userId', '==', uid)));
+      msSnap.docs.forEach(d => batch.delete(d.ref));
+
+      // Delete all challenges the user created
+      const challengeSnap = await getDocs(query(collection(db, 'challenges'), where('creatorId', '==', uid)));
+      challengeSnap.docs.forEach(d => batch.delete(d.ref));
+
+      // Remove user as partner from any partner challenges
+      const partnerSnap = await getDocs(query(collection(db, 'challenges'), where('partnerId', '==', uid)));
+      partnerSnap.docs.forEach(d => batch.update(d.ref, { partnerId: null }));
+
+      await batch.commit();
+      // Terminate Firestore and clear its local cache so reload starts fresh
+      await terminate(db);
+      await clearIndexedDbPersistence(db);
+      window.location.reload();
+    } catch (err) {
+      console.error('Reset failed:', err);
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -146,15 +184,69 @@ export function Profile({ profile }: Props) {
           </div>
         )}
 
-        {/* Sign Out */}
-        <button
-          onClick={handleLogout}
-          className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-red-500/30 text-red-400 font-bold text-sm active:bg-red-500/10 transition-colors"
-        >
-          <LogOut size={17} />
-          Sign Out
-        </button>
+        {/* Danger Zone */}
+        <div className="space-y-3 pt-2">
+          <button
+            onClick={() => setShowResetConfirm(true)}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-red-500/20 text-red-400/70 font-bold text-sm active:bg-red-500/10 transition-colors"
+          >
+            <RotateCcw size={17} />
+            Reset All Progress
+          </button>
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center justify-center gap-2 py-4 rounded-2xl border border-red-500/30 text-red-400 font-bold text-sm active:bg-red-500/10 transition-colors"
+          >
+            <LogOut size={17} />
+            Sign Out
+          </button>
+        </div>
       </div>
+
+      {/* Reset confirmation modal */}
+      <AnimatePresence>
+        {showResetConfirm && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ scale: 0.9, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.9, y: 20 }}
+              className="w-full max-w-sm bg-surface rounded-3xl p-6 shadow-2xl space-y-5"
+            >
+              <div className="flex flex-col items-center text-center gap-3">
+                <div className="w-14 h-14 rounded-2xl bg-red-500/10 flex items-center justify-center">
+                  <AlertTriangle size={28} className="text-red-400" />
+                </div>
+                <h3 className="text-xl font-headline font-bold">Reset Everything?</h3>
+                <p className="text-text-secondary text-sm leading-relaxed">
+                  This will permanently delete <strong>all your challenges, activity logs, and unlocked postcards</strong>. You'll start fresh as if you just signed up. This cannot be undone.
+                </p>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowResetConfirm(false)}
+                  disabled={resetting}
+                  className="flex-1 py-3 rounded-2xl border border-outline/30 text-text-secondary font-bold text-sm transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleResetProgress}
+                  disabled={resetting}
+                  className="flex-1 py-3 rounded-2xl bg-red-500 text-white font-bold text-sm active:bg-red-600 transition-colors"
+                >
+                  {resetting ? 'Resetting...' : 'Reset'}
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

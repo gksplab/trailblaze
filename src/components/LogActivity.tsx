@@ -4,7 +4,7 @@ import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs, Time
 import { routes } from '../lib/routes';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
-import { Navigation, Calendar, FileText, Send, X } from 'lucide-react';
+import { Navigation, Calendar, FileText, Send, X, Footprints } from 'lucide-react';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
@@ -22,14 +22,26 @@ const activityTypes = [
   { id: 'other', label: 'Other', icon: '⚡' }
 ];
 
+// Convert steps to km with a randomised stride length (element of surprise)
+function stepsToKm(steps: number): number {
+  // Average human stride: 0.65–0.85m depending on pace, height, terrain
+  const baseStride = 0.72; // metres
+  const jitter = 0.12; // ±12% variation
+  const stride = baseStride * (1 + (Math.random() * 2 - 1) * jitter);
+  return (steps * stride) / 1000;
+}
+
 export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props) {
   const [activityType, setActivityType] = useState('walk');
   const [distance, setDistance] = useState('');
+  const [steps, setSteps] = useState('');
   const [date, setDate] = useState(format(new Date(), 'yyyy-MM-dd'));
   const [notes, setNotes] = useState('');
   const [unit, setUnit] = useState<'km' | 'miles'>('km');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  const isStepsMode = activityType === 'walk';
 
   useEffect(() => {
     const savedUnit = localStorage.getItem('trailblaze_unit') as 'km' | 'miles';
@@ -44,19 +56,29 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!distance || !auth.currentUser || !challenge) return;
+    if (isStepsMode ? !steps : !distance) return;
+    if (!auth.currentUser || !challenge) return;
     setLoading(true);
     setError('');
 
     try {
-      const distanceKm = unit === 'miles' ? parseFloat(distance) * 1.60934 : parseFloat(distance);
-      
+      let distanceKm: number;
+      let logSteps: number | null = null;
+
+      if (isStepsMode) {
+        logSteps = parseInt(steps, 10);
+        distanceKm = stepsToKm(logSteps);
+      } else {
+        distanceKm = unit === 'miles' ? parseFloat(distance) * 1.60934 : parseFloat(distance);
+      }
+
       // 1. Create Log
       await addDoc(collection(db, 'logs'), {
         userId: auth.currentUser.uid,
         challengeId: challenge.id,
         activityType,
         distanceKm,
+        ...(logSteps !== null && { steps: logSteps }),
         date,
         notes,
         createdAt: new Date().toISOString()
@@ -141,37 +163,58 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props)
           </div>
         </div>
 
-        {/* Distance */}
-        <div className="card p-6 space-y-4">
-          <label className="text-xs font-bold uppercase text-text-secondary tracking-widest">Distance</label>
-          <div className="flex items-end gap-3">
+        {/* Steps (walk) or Distance (other activities) */}
+        {isStepsMode ? (
+          <div className="card p-6 space-y-4">
+            <label className="text-xs font-bold uppercase text-text-secondary tracking-widest flex items-center gap-2">
+              <Footprints size={14} /> Steps
+            </label>
             <input
               type="number"
-              step="0.1"
+              step="1"
+              min="1"
               required
-              value={distance}
-              onChange={(e) => setDistance(e.target.value)}
-              placeholder="0.0"
-              className="flex-1 bg-transparent border-none p-0 text-5xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/30"
+              value={steps}
+              onChange={(e) => setSteps(e.target.value)}
+              placeholder="0"
+              className="w-full bg-transparent border-none p-0 text-5xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/30"
             />
-            <div className="flex bg-surface-low rounded-lg p-1 border border-outline/30">
-              <button
-                type="button"
-                onClick={handleUnitToggle}
-                className={cn("px-3 py-1 rounded-md text-xs font-bold transition-colors", unit === 'km' ? "bg-primary text-background" : "text-text-secondary")}
-              >
-                KM
-              </button>
-              <button
-                type="button"
-                onClick={handleUnitToggle}
-                className={cn("px-3 py-1 rounded-md text-xs font-bold transition-colors", unit === 'miles' ? "bg-primary text-background" : "text-text-secondary")}
-              >
-                MI
-              </button>
+            <p className="text-xs text-text-secondary">
+              Your stride varies each time — distance is a surprise!
+            </p>
+          </div>
+        ) : (
+          <div className="card p-6 space-y-4">
+            <label className="text-xs font-bold uppercase text-text-secondary tracking-widest">Distance</label>
+            <div className="flex items-end gap-3">
+              <input
+                type="number"
+                step="0.1"
+                required
+                value={distance}
+                onChange={(e) => setDistance(e.target.value)}
+                placeholder="0.0"
+                className="flex-1 bg-transparent border-none p-0 text-5xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/30"
+              />
+              <div className="flex bg-surface-low rounded-lg p-1 border border-outline/30">
+                <button
+                  type="button"
+                  onClick={handleUnitToggle}
+                  className={cn("px-3 py-1 rounded-md text-xs font-bold transition-colors", unit === 'km' ? "bg-primary text-background" : "text-text-secondary")}
+                >
+                  KM
+                </button>
+                <button
+                  type="button"
+                  onClick={handleUnitToggle}
+                  className={cn("px-3 py-1 rounded-md text-xs font-bold transition-colors", unit === 'miles' ? "bg-primary text-background" : "text-text-secondary")}
+                >
+                  MI
+                </button>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Date */}
         <div className="card p-6 space-y-4">

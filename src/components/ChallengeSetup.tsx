@@ -135,7 +135,7 @@ export function ChallengeSetup({ onComplete, onCancel, existingChallenges = [], 
                 >
                   <div className="h-32 relative">
                     <img
-                      src={`https://maps.googleapis.com/maps/api/streetview?size=400x300&location=${route.waypoints[0].lat},${route.waypoints[0].lng}&key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}`}
+                      src={route.coverImage}
                       alt={route.name}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
