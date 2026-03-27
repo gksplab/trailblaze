@@ -4,7 +4,8 @@ import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs, Time
 import { routes } from '../lib/routes';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { Calendar, ChevronDown, Send, X, Footprints, Camera, Trash2, ImageIcon } from 'lucide-react';
+import { Calendar, ChevronDown, Send, X, Footprints, Camera, Trash2, RefreshCw } from 'lucide-react';
+import { fetchGoogleFitSteps } from '../lib/googlefit';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
@@ -41,6 +42,7 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [photo, setPhoto] = useState<string | null>(null);
+  const [importing, setImporting] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isStepsMode = activityType === 'walk';
@@ -58,6 +60,19 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
     const reader = new FileReader();
     reader.onloadend = () => setPhoto(reader.result as string);
     reader.readAsDataURL(file);
+  };
+
+  const handleImportGoogleFit = async () => {
+    setImporting(true);
+    try {
+      const totalSteps = await fetchGoogleFitSteps();
+      setSteps(totalSteps.toString());
+    } catch (err: any) {
+      console.error('Google Fit import failed:', err);
+      setError(err.message || 'Could not import from Google Fit');
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleUnitToggle = () => {
@@ -189,9 +204,26 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChalle
                 placeholder="0"
                 className="w-full bg-transparent border-none text-center p-0 text-6xl font-headline font-bold focus:ring-0 outline-none placeholder:text-outline/20"
               />
-              <p className="text-[11px] text-primary/70 mt-2 font-medium">
-                Your stride varies — distance is a surprise!
-              </p>
+              <div className="flex items-center justify-center gap-3 mt-3">
+                <p className="text-[11px] text-primary/70 font-medium">
+                  Stride varies — distance is a surprise!
+                </p>
+              </div>
+              {import.meta.env.VITE_GOOGLE_CLIENT_ID && (
+                <button
+                  type="button"
+                  onClick={handleImportGoogleFit}
+                  disabled={importing}
+                  className="mt-2 w-full flex items-center justify-center gap-2 py-2.5 rounded-xl bg-surface-low border border-outline/20 text-text-secondary text-xs font-bold active:bg-outline/10 transition-colors"
+                >
+                  {importing ? (
+                    <RefreshCw size={14} className="animate-spin" />
+                  ) : (
+                    <img src="https://www.gstatic.com/fitness/images/google_fit/google_fit_logo.svg" alt="" className="w-4 h-4" />
+                  )}
+                  {importing ? 'Importing...' : "Import today's steps from Google Fit"}
+                </button>
+              )}
             </>
           ) : (
             <>
