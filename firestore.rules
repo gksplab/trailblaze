@@ -76,6 +76,7 @@ service cloud.firestore {
         request.auth.uid == resource.data.partnerId ||
         (resource.data.mode == 'partner' && resource.data.partnerId == null)
       ) && isValidChallenge(request.resource.data);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.creatorId;
     }
 
     match /logs/{logId} {
@@ -87,6 +88,7 @@ service cloud.firestore {
         ))
       );
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId && isValidLog(request.resource.data);
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
 
     match /milestones/{milestoneId} {
@@ -98,6 +100,7 @@ service cloud.firestore {
         ))
       );
       allow create: if isAuthenticated() && request.auth.uid == request.resource.data.userId;
+      allow delete: if isAuthenticated() && request.auth.uid == resource.data.userId;
     }
   }
 }

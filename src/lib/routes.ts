@@ -37,7 +37,7 @@ export const routes: Route[] = [
     difficulty: "Easy",
     estimatedDays: "3–7 days",
     postcardsCount: 9,
-    coverImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Sphinx-University_of_Athens.jpg/800px-Sphinx-University_of_Athens.jpg",
+    coverImage: "/images/athens-cover.jpg",
     // Clean polyline: Syntagma → S through gardens → Stadium → W to Temple →
     // NW into Plaka → S to Acropolis → SW to Filopappou → N to Agora →
     // NW to Kerameikos → S on Pireos Ave to Piraeus
@@ -131,7 +131,7 @@ export const routes: Route[] = [
     difficulty: "Easy",
     estimatedDays: "2–5 days",
     postcardsCount: 11,
-    coverImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/7/79/BicycleAmsterdam.jpg/800px-BicycleAmsterdam.jpg",
+    coverImage: "/images/amsterdam-cover.jpg",
     // Clean polyline: clockwise canal-ring loop — west down Prinsengracht,
     // south past museums, east along Amstel, north up to NEMO, west to Jordaan
     path: [
@@ -238,7 +238,7 @@ export const routes: Route[] = [
     difficulty: "Challenging",
     estimatedDays: "7–14 days",
     postcardsCount: 11,
-    coverImage: "https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/9th_and_10th_Battalions_at_Mena_Camp%2C_ca1915_%2828144458570%29.jpg/800px-9th_and_10th_Battalions_at_Mena_Camp%2C_ca1915_%2828144458570%29.jpg",
+    coverImage: "/images/cairo-cover.jpg",
     // Clean polyline: Tahrir east to Islamic Cairo, south through Citadel /
     // Old Cairo, then west across the Nile to Giza plateau
     path: [
