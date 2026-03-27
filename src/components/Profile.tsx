@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { db, auth } from '../lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, doc, updateDoc, getDocs, deleteDoc, writeBatch, terminate, clearIndexedDbPersistence } from 'firebase/firestore';
-import { formatDistance, getInitials } from '../lib/utils';
+import { formatDistance, getInitials, calculateStreak } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { format } from 'date-fns';
-import { LogOut, Ruler, Trophy, ChevronRight, RotateCcw, AlertTriangle } from 'lucide-react';
+import { LogOut, Ruler, Trophy, ChevronRight, RotateCcw, AlertTriangle, Flame } from 'lucide-react';
 
 interface Props {
   profile: any;
@@ -13,6 +13,7 @@ interface Props {
 export function Profile({ profile }: Props) {
   const [completedChallenges, setCompletedChallenges] = useState<any[]>([]);
   const [totalDistance, setTotalDistance] = useState(0);
+  const [streak, setStreak] = useState({ current: 0, longest: 0 });
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
 
@@ -33,8 +34,10 @@ export function Profile({ profile }: Props) {
     const fetchTotalDistance = async () => {
       const logsQ = query(collection(db, 'logs'), where('userId', '==', auth.currentUser?.uid));
       const logsSnap = await getDocs(logsQ);
-      const total = logsSnap.docs.reduce((acc, d) => acc + (d.data().distanceKm || 0), 0);
+      const logs = logsSnap.docs.map(d => d.data());
+      const total = logs.reduce((acc, l) => acc + (l.distanceKm || 0), 0);
       setTotalDistance(total);
+      setStreak(calculateStreak(logs as { date: string }[]));
     };
 
     fetchTotalDistance();
@@ -116,22 +119,27 @@ export function Profile({ profile }: Props) {
 
       <div className="px-5 space-y-5">
         {/* Stats */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="card p-5 space-y-1">
-            <p className="text-[10px] font-bold uppercase text-text-secondary tracking-widest">Total Distance</p>
-            <p className="text-3xl font-headline font-bold text-primary">
+        <div className="grid grid-cols-3 gap-3">
+          <div className="card p-4 space-y-1">
+            <p className="text-[9px] font-bold uppercase text-text-secondary tracking-widest">Distance</p>
+            <p className="text-2xl font-headline font-bold text-primary">
               {formatDistance(totalDistance, profile?.units || 'km')}
             </p>
-            <p className="text-xs text-text-secondary">across all routes</p>
           </div>
-          <div className="card p-5 space-y-1">
-            <p className="text-[10px] font-bold uppercase text-text-secondary tracking-widest">Completed</p>
-            <p className="text-3xl font-headline font-bold text-primary">
+          <div className="card p-4 space-y-1">
+            <p className="text-[9px] font-bold uppercase text-text-secondary tracking-widest">Completed</p>
+            <p className="text-2xl font-headline font-bold text-primary">
               {completedChallenges.length}
             </p>
-            <p className="text-xs text-text-secondary">
-              {completedChallenges.length === 1 ? 'challenge' : 'challenges'} finished
+          </div>
+          <div className="card p-4 space-y-1">
+            <p className="text-[9px] font-bold uppercase text-text-secondary tracking-widest flex items-center gap-1">
+              <Flame size={10} className="text-orange-400" /> Streak
             </p>
+            <p className="text-2xl font-headline font-bold text-orange-400">
+              {streak.current}
+            </p>
+            <p className="text-[9px] text-text-secondary">best: {streak.longest}</p>
           </div>
         </div>
 

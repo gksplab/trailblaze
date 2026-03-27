@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '../lib/firebase';
 import { collection, addDoc, doc, updateDoc, getDoc, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { routes } from '../lib/routes';
 import { cn } from '../lib/utils';
 import { motion } from 'motion/react';
-import { Navigation, Calendar, FileText, Send, X, Footprints } from 'lucide-react';
+import { Navigation, Calendar, FileText, Send, X, Footprints, Camera, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import confetti from 'canvas-confetti';
 
@@ -12,6 +12,7 @@ interface Props {
   challenge: any;
   onLogged: () => void;
   onMilestoneUnlocked?: (data: { waypoint: any; waypointIndex: number }) => void;
+  onChallengeCompleted?: (challenge: any) => void;
 }
 
 const activityTypes = [
@@ -31,7 +32,7 @@ function stepsToKm(steps: number): number {
   return (steps * stride) / 1000;
 }
 
-export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props) {
+export function LogActivity({ challenge, onLogged, onMilestoneUnlocked, onChallengeCompleted }: Props) {
   const [activityType, setActivityType] = useState('walk');
   const [distance, setDistance] = useState('');
   const [steps, setSteps] = useState('');
@@ -40,6 +41,8 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props)
   const [unit, setUnit] = useState<'km' | 'miles'>('km');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [photo, setPhoto] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isStepsMode = activityType === 'walk';
 
@@ -47,6 +50,14 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props)
     const savedUnit = localStorage.getItem('trailblaze_unit') as 'km' | 'miles';
     if (savedUnit) setUnit(savedUnit);
   }, []);
+
+  const handlePhotoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onloadend = () => setPhoto(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleUnitToggle = () => {
     const newUnit = unit === 'km' ? 'miles' : 'km';
@@ -79,6 +90,7 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props)
         activityType,
         distanceKm,
         ...(logSteps !== null && { steps: logSteps }),
+        ...(photo && { photo }),
         date,
         notes,
         createdAt: new Date().toISOString()
@@ -123,8 +135,11 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props)
         }
       }
 
+      const challengeCompleted = newTotal >= challenge.totalDistanceKm;
+
       onLogged();
       if (firstUnlocked) onMilestoneUnlocked?.(firstUnlocked);
+      if (challengeCompleted) onChallengeCompleted?.(challenge);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -242,6 +257,42 @@ export function LogActivity({ challenge, onLogged, onMilestoneUnlocked }: Props)
             rows={3}
             className="w-full bg-surface border border-outline/30 rounded-xl p-4 text-sm outline-none focus:border-primary transition-colors"
           />
+        </div>
+
+        {/* Photo */}
+        <div className="space-y-3">
+          <label className="text-xs font-bold uppercase text-text-secondary tracking-widest flex items-center gap-2">
+            <Camera size={14} /> Photo (Optional)
+          </label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={handlePhotoSelect}
+          />
+          {photo ? (
+            <div className="relative rounded-xl overflow-hidden">
+              <img src={photo} alt="Activity" className="w-full h-40 object-cover" />
+              <button
+                type="button"
+                onClick={() => { setPhoto(null); if (fileInputRef.current) fileInputRef.current.value = ''; }}
+                className="absolute top-2 right-2 p-1.5 bg-black/60 rounded-full text-white"
+              >
+                <Trash2 size={14} />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full h-24 rounded-xl border border-dashed border-outline/40 flex flex-col items-center justify-center gap-2 text-text-secondary active:bg-surface-low transition-colors"
+            >
+              <Camera size={20} />
+              <span className="text-xs font-bold">Add a photo</span>
+            </button>
+          )}
         </div>
 
         {error && <p className="text-red-400 text-sm text-center">{error}</p>}

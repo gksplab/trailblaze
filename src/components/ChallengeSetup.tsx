@@ -20,6 +20,7 @@ export function ChallengeSetup({ onComplete, onCancel, existingChallenges = [], 
   const [partnerAction, setPartnerAction] = useState<'create' | 'join' | null>(null);
   const [inviteCode, setInviteCode] = useState('');
   const [targetDate, setTargetDate] = useState(format(addDays(new Date(), 14), 'yyyy-MM-dd'));
+  const [noDeadline, setNoDeadline] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -37,7 +38,7 @@ export function ChallengeSetup({ onComplete, onCancel, existingChallenges = [], 
         creatorId: auth.currentUser.uid,
         partnerId: null,
         startDate: new Date().toISOString(),
-        targetEndDate: new Date(targetDate).toISOString(),
+        targetEndDate: noDeadline ? null : new Date(targetDate).toISOString(),
         status: 'active',
         nudgePartner: false
       };
@@ -237,29 +238,52 @@ export function ChallengeSetup({ onComplete, onCancel, existingChallenges = [], 
 
         {step === 3 && (
           <div className="space-y-6">
-            <div className="card p-6 space-y-4">
-              <label className="text-xs font-bold uppercase text-text-secondary flex items-center gap-2">
-                <CalendarIcon size={14} /> Target End Date
-              </label>
-              <input
-                type="date"
-                value={targetDate}
-                onChange={(e) => setTargetDate(e.target.value)}
-                min={format(new Date(), 'yyyy-MM-dd')}
-                className="w-full bg-surface-low border-outline/30 rounded-lg p-3 text-lg font-bold outline-none focus:border-primary"
-              />
-              
-              {selectedRoute && (
-                <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
-                  <p className="text-sm">
-                    To finish by <strong>{format(new Date(targetDate), 'MMM d, yyyy')}</strong>, you'll need to average:
-                  </p>
-                  <p className="text-2xl font-headline font-bold text-primary mt-1">
-                    {(selectedRoute.totalDistance / Math.max(1, (new Date(targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))).toFixed(1)} km / day
-                  </p>
-                </div>
+            {/* No deadline toggle */}
+            <button
+              type="button"
+              onClick={() => setNoDeadline(!noDeadline)}
+              className={cn(
+                "w-full p-4 rounded-xl border flex items-center justify-between transition-all",
+                noDeadline ? "border-primary bg-primary/10" : "border-outline/30"
               )}
-            </div>
+            >
+              <span className="font-medium">Go at my own pace</span>
+              <div className={cn(
+                "w-10 h-6 rounded-full transition-colors flex items-center px-0.5",
+                noDeadline ? "bg-primary" : "bg-outline/30"
+              )}>
+                <div className={cn(
+                  "w-5 h-5 bg-white rounded-full transition-transform shadow",
+                  noDeadline && "translate-x-4"
+                )} />
+              </div>
+            </button>
+
+            {!noDeadline && (
+              <div className="card p-6 space-y-4">
+                <label className="text-xs font-bold uppercase text-text-secondary flex items-center gap-2">
+                  <CalendarIcon size={14} /> Target End Date
+                </label>
+                <input
+                  type="date"
+                  value={targetDate}
+                  onChange={(e) => setTargetDate(e.target.value)}
+                  min={format(new Date(), 'yyyy-MM-dd')}
+                  className="w-full bg-surface-low border-outline/30 rounded-lg p-3 text-lg font-bold outline-none focus:border-primary"
+                />
+
+                {selectedRoute && (
+                  <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                    <p className="text-sm">
+                      To finish by <strong>{format(new Date(targetDate), 'MMM d, yyyy')}</strong>, you'll need to average:
+                    </p>
+                    <p className="text-2xl font-headline font-bold text-primary mt-1">
+                      {(selectedRoute.totalDistance / Math.max(1, (new Date(targetDate).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))).toFixed(1)} km / day
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
       </div>

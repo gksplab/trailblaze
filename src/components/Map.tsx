@@ -3,9 +3,9 @@ import { GoogleMap, useJsApiLoader, Polyline, MarkerF, InfoWindow } from '@react
 import { db, auth, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, orderBy, limit } from 'firebase/firestore';
 import { routes, Route, Waypoint } from '../lib/routes';
-import { cn, formatDistance } from '../lib/utils';
+import { cn, formatDistance, calculateStreak } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
-import { MapPin, Navigation, TrendingUp, Calendar, ChevronUp, ChevronDown, Check, X, Plus } from 'lucide-react';
+import { MapPin, Navigation, TrendingUp, Calendar, ChevronUp, ChevronDown, Check, X, Plus, Flame } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 
 interface Props {
@@ -383,19 +383,26 @@ export function Map({ challenge, profile, allChallenges = [], onSelectChallenge,
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="card p-4 flex items-center gap-3">
-                <Calendar className="text-text-secondary" size={20} />
+            <div className="grid grid-cols-3 gap-3">
+              <div className="card p-3 flex items-center gap-2">
+                <Calendar className="text-text-secondary shrink-0" size={16} />
                 <div>
-                  <p className="text-[10px] font-bold uppercase text-text-secondary">Est. Finish</p>
-                  <p className="text-sm font-bold">{challenge?.targetEndDate ? format(new Date(challenge.targetEndDate), 'MMM d, yyyy') : 'N/A'}</p>
+                  <p className="text-[9px] font-bold uppercase text-text-secondary">Finish</p>
+                  <p className="text-xs font-bold">{challenge?.targetEndDate ? format(new Date(challenge.targetEndDate), 'MMM d') : '--'}</p>
                 </div>
               </div>
-              <div className="card p-4 flex items-center gap-3">
-                <TrendingUp className="text-text-secondary" size={20} />
+              <div className="card p-3 flex items-center gap-2">
+                <TrendingUp className="text-text-secondary shrink-0" size={16} />
                 <div>
-                  <p className="text-[10px] font-bold uppercase text-text-secondary">Remaining</p>
-                  <p className="text-sm font-bold">{challenge?.targetEndDate ? differenceInDays(new Date(challenge.targetEndDate), new Date()) : 0} Days</p>
+                  <p className="text-[9px] font-bold uppercase text-text-secondary">Left</p>
+                  <p className="text-xs font-bold">{challenge?.targetEndDate ? differenceInDays(new Date(challenge.targetEndDate), new Date()) : '--'} days</p>
+                </div>
+              </div>
+              <div className="card p-3 flex items-center gap-2">
+                <Flame className="text-orange-400 shrink-0" size={16} />
+                <div>
+                  <p className="text-[9px] font-bold uppercase text-text-secondary">Streak</p>
+                  <p className="text-xs font-bold text-orange-400">{calculateStreak(userLogs as { date: string }[]).current} days</p>
                 </div>
               </div>
             </div>

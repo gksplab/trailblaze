@@ -26,7 +26,9 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<Tab>('map');
   const [showSetup, setShowSetup] = useState(false);
   const [unlockedPostcard, setUnlockedPostcard] = useState<{ waypoint: any; waypointIndex: number } | null>(null);
+  const [completedChallenge, setCompletedChallenge] = useState<any>(null);
   const milestoneCardRef = useRef<HTMLDivElement>(null);
+  const certificateRef = useRef<HTMLDivElement>(null);
 
   const activeChallenge = useMemo(
     () => allChallenges.find(c => c.id === selectedChallengeId) || allChallenges[0] || null,
@@ -129,6 +131,7 @@ export default function App() {
             challenge={activeChallenge}
             onLogged={() => setActiveTab('map')}
             onMilestoneUnlocked={(data) => setUnlockedPostcard(data)}
+            onChallengeCompleted={(c) => setCompletedChallenge(c)}
           />
         );
       case 'postcards':
@@ -331,6 +334,103 @@ export default function App() {
                         Continue
                       </button>
                     </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            );
+          })()}
+        </AnimatePresence>
+
+        {/* Completion certificate modal */}
+        <AnimatePresence>
+          {completedChallenge && (() => {
+            const route = routes.find(r => r.id === completedChallenge.routeId);
+            const userName = profile?.name || 'Trailblazer';
+            const finishDate = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+            return (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="absolute inset-0 z-[100] flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+                onClick={() => setCompletedChallenge(null)}
+              >
+                <motion.div
+                  initial={{ scale: 0.8, y: 30 }}
+                  animate={{ scale: 1, y: 0 }}
+                  exit={{ scale: 0.8, opacity: 0 }}
+                  transition={{ type: 'spring', damping: 18 }}
+                  className="w-full max-w-md shadow-2xl"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {/* Capturable certificate */}
+                  <div ref={certificateRef} className="rounded-2xl overflow-hidden" style={{ background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)' }}>
+                    {/* Gold border frame */}
+                    <div className="m-3 border-2 border-yellow-600/40 rounded-xl p-6 text-center space-y-5">
+                      <div className="space-y-1">
+                        <p className="text-[10px] font-bold uppercase tracking-[0.5em] text-yellow-600/70">Certificate of Completion</p>
+                        <div className="w-16 h-px bg-yellow-600/40 mx-auto" />
+                      </div>
+
+                      <div className="text-5xl">🏆</div>
+
+                      <div className="space-y-2">
+                        <p className="text-yellow-600/60 text-xs uppercase tracking-widest">This certifies that</p>
+                        <p className="text-2xl font-headline font-bold text-white">{userName}</p>
+                        <p className="text-yellow-600/60 text-xs uppercase tracking-widest">has successfully completed</p>
+                      </div>
+
+                      <div className="space-y-1">
+                        <p className="text-xl font-headline font-bold text-primary">{route?.name}</p>
+                        <p className="text-white/60 text-sm">{route?.country}</p>
+                      </div>
+
+                      <div className="flex justify-center gap-6 text-center">
+                        <div>
+                          <p className="text-lg font-headline font-bold text-white">{route?.totalDistance} km</p>
+                          <p className="text-[9px] uppercase tracking-widest text-white/40">Distance</p>
+                        </div>
+                        <div className="w-px bg-yellow-600/20" />
+                        <div>
+                          <p className="text-lg font-headline font-bold text-white">{route?.waypoints.length}</p>
+                          <p className="text-[9px] uppercase tracking-widest text-white/40">Waypoints</p>
+                        </div>
+                      </div>
+
+                      <div className="space-y-1 pt-2">
+                        <div className="w-24 h-px bg-yellow-600/30 mx-auto" />
+                        <p className="text-[10px] text-white/40">{finishDate}</p>
+                        <p className="text-[9px] font-bold uppercase tracking-[0.3em] text-yellow-600/50">Trailblaze</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions below certificate */}
+                  <div className="flex gap-3 mt-3">
+                    <button
+                      onClick={async () => {
+                        if (!certificateRef.current) return;
+                        try {
+                          const dataUrl = await toJpeg(certificateRef.current, { quality: 0.92, backgroundColor: '#1a1a2e' });
+                          const blob = await (await fetch(dataUrl)).blob();
+                          const file = new File([blob], `trailblaze-certificate-${route?.id}.jpg`, { type: 'image/jpeg' });
+                          if (navigator.share && navigator.canShare?.({ files: [file] })) {
+                            await navigator.share({ title: 'Trailblaze Certificate', text: `I completed the ${route?.name} challenge!`, files: [file] });
+                          } else {
+                            const a = document.createElement('a'); a.href = dataUrl; a.download = file.name; a.click();
+                          }
+                        } catch {}
+                      }}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 rounded-2xl bg-primary text-background font-bold text-sm"
+                    >
+                      <Download size={16} /> Save Certificate
+                    </button>
+                    <button
+                      onClick={() => setCompletedChallenge(null)}
+                      className="flex-1 py-3 rounded-2xl border border-outline/30 text-text-secondary font-bold text-sm"
+                    >
+                      Close
+                    </button>
                   </div>
                 </motion.div>
               </motion.div>
