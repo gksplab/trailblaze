@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+@theme {
+  --font-headline: "Epilogue", sans-serif;
+  --font-body: "Plus Jakarta Sans", sans-serif;
+  --font-label: "Plus Jakarta Sans", sans-serif;
+
+  --color-secondary-container: #872d1f;
+  --color-on-secondary-fixed-variant: #80281b;
+  --color-surface-bright: #393a34;
+  --color-on-primary: #0a3909;
+  --color-on-tertiary-fixed: #111f00;
+  --color-tertiary-container: #395900;
+  --color-outline: #8c9387;
+  --color-primary-fixed: #bcf0ae;
+  --color-inverse-primary: #3b6934;
+  --color-secondary-fixed: #ffdad4;
+  --color-on-secondary-container: #ffa494;
+  --color-surface-container: #1f201b;
+  --color-secondary-fixed-dim: #ffb4a7;
+  --color-on-tertiary-fixed-variant: #324f00;
+  --color-surface-container-low: #1b1c17;
+  --color-outline-variant: #42493e;
+  --color-inverse-surface: #e4e3da;
+  --color-surface: #13140f;
+  --color-error: #ffb4ab;
+  --color-on-secondary-fixed: #400200;
+  --color-on-surface: #e4e3da;
+  --color-on-error: #690005;
+  --color-surface-container-highest: #343530;
+  --color-on-error-container: #ffdad6;
+  --color-surface-tint: #a1d494;
+  --color-tertiary-fixed: #aaf928;
+  --color-error-container: #93000a;
+  --color-tertiary: #91db00;
+  --color-secondary: #ffb4a7;
+  --color-on-primary-fixed: #002201;
+  --color-primary: #a1d494;
+  --color-on-secondary: #611108;
+  --color-inverse-on-surface: #30312b;
+  --color-surface-container-lowest: #0e0f0a;
+  --color-tertiary-fixed-dim: #91db00;
+  --color-surface-variant: #343530;
+  --color-primary-container: #2d5a27;
+  --color-primary-fixed-dim: #a1d494;
+  --color-on-tertiary: #213600;
+  --color-surface-container-high: #2a2a25;
+  --color-on-tertiary-container: #8fd700;
+  --color-on-primary-fixed-variant: #23501e;
+  --color-surface-dim: #13140f;
+  --color-on-surface-variant: #c2c9bb;
+  --color-on-primary-container: #9dd090;
+  --color-on-background: #e4e3da;
+  --color-background: #13140f;
+
+  /* Aliases for backward compatibility */
+  --color-text-primary: var(--color-on-surface);
+  --color-text-secondary: var(--color-on-surface-variant);
+  --color-surface-low: var(--color-surface-container-low);
+  --color-surface: var(--color-surface-container);
+  --color-outline: var(--color-outline-variant);
+}
+
+@layer base {
+  body {
+    @apply bg-background text-on-surface font-body selection:bg-primary/30 antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+@layer components {
+  .grainy-overlay {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+    opacity: 0.03;
+  }
+  .btn-primary {
+    @apply bg-gradient-to-br from-primary to-[#3baf65] text-background font-bold py-4 px-6 rounded-full active:scale-95 transition-all shadow-lg flex items-center justify-center gap-2;
+  }
+
+  .card {
+    @apply bg-surface-container rounded-xl border border-outline-variant/30 overflow-hidden;
+  }
+
+  .bottom-nav-item {
+    @apply flex flex-col items-center justify-center gap-1 text-on-surface-variant transition-colors;
+  }
+
+  .bottom-nav-item.active {
+    @apply text-primary;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 4px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a3a50;
+  border-radius: 10px;
+}
+
+/* Map styles */
+.gm-style-iw {
+  background-color: #1a2535 !important;
+  color: #f1f5f9 !important;
+  border-radius: 12px !important;
+  padding: 0 !important;
+}
+.gm-style-iw-d {
+  overflow: hidden !important;
+}
+.gm-style-iw-tc::after {
+  background-color: #1a2535 !important;
+}
+
+/* Postcard Flip Animation */
+.postcard-inner {
+  transition: transform 0.6s;
+  transform-style: preserve-3d;
+}
+.postcard-flip .postcard-inner {
+  transform: rotateY(180deg);
+}
+.postcard-front, .postcard-back {
+  backface-visibility: hidden;
+}
+.postcard-back {
+  transform: rotateY(180deg);
+}
+

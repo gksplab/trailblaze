@@ -1,0 +1,22 @@
+{
+  "name": "Trailblaze",
+  "short_name": "Trailblaze",
+  "description": "Turn your daily exercise into a world adventure",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f1923",
+  "theme_color": "#4ade80",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/trailblaze/192/192",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://picsum.photos/seed/trailblaze/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}

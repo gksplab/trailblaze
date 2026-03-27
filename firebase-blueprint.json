@@ -1,0 +1,70 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile information",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "avatarColor": { "type": "string", "description": "Hex color code" },
+        "units": { "type": "string", "enum": ["km", "miles"] }
+      },
+      "required": ["name", "email", "avatarColor"]
+    },
+    "Challenge": {
+      "title": "Challenge",
+      "description": "A fitness challenge on a specific route",
+      "type": "object",
+      "properties": {
+        "routeId": { "type": "string" },
+        "routeName": { "type": "string" },
+        "totalDistanceKm": { "type": "number" },
+        "totalDistanceLogged": { "type": "number", "default": 0 },
+        "mode": { "type": "string", "enum": ["solo", "partner"] },
+        "creatorId": { "type": "string" },
+        "partnerId": { "type": "string" },
+        "inviteCode": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "targetEndDate": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["active", "completed"] },
+        "nudgePartner": { "type": "boolean" }
+      },
+      "required": ["routeId", "routeName", "totalDistanceKm", "mode", "creatorId", "startDate", "status"]
+    },
+    "Log": {
+      "title": "Log",
+      "description": "An activity log entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "challengeId": { "type": "string" },
+        "activityType": { "type": "string", "enum": ["walk", "run", "cycle", "swim", "other"] },
+        "distanceKm": { "type": "number" },
+        "date": { "type": "string", "format": "date" },
+        "notes": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "challengeId", "activityType", "distanceKm", "date", "createdAt"]
+    },
+    "Milestone": {
+      "title": "Milestone",
+      "description": "A milestone reached in a challenge",
+      "type": "object",
+      "properties": {
+        "challengeId": { "type": "string" },
+        "userId": { "type": "string" },
+        "percentage": { "type": "integer" },
+        "waypointIndex": { "type": "integer" },
+        "unlockedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["challengeId", "userId", "percentage", "waypointIndex", "unlockedAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": { "schema": "User", "description": "User profiles" },
+    "/challenges/{challengeId}": { "schema": "Challenge", "description": "Active and completed challenges" },
+    "/logs/{logId}": { "schema": "Log", "description": "Activity logs" },
+    "/milestones/{milestoneId}": { "schema": "Milestone", "description": "Unlocked milestones" }
+  }
+}

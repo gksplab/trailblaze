@@ -1,0 +1,7 @@
+{
+  "name": "Trailblaze",
+  "description": "Turn your daily exercise into a world adventure with real-time partner challenges.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}
