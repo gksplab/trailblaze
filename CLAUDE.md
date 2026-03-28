@@ -25,11 +25,16 @@ npm run clean    # Remove dist/
 ## Environment Variables
 
 ```
-VITE_GOOGLE_MAPS_API_KEY   # Required — Maps JS + Street View
-VITE_GOOGLE_CLIENT_ID      # Optional — Google Fit OAuth (Web app type)
+VITE_GOOGLE_MAPS_API_KEY          # Required — Maps JS + Street View
+VITE_GOOGLE_CLIENT_ID             # Optional — Google Fit OAuth (Web app type)
+VITE_FIREBASE_API_KEY             # Required — Firebase API key
+VITE_FIREBASE_AUTH_DOMAIN         # Required — Firebase auth domain
+VITE_FIREBASE_PROJECT_ID          # Required — Firebase project ID
+VITE_FIREBASE_STORAGE_BUCKET      # Required — Firebase storage bucket
+VITE_FIREBASE_MESSAGING_SENDER_ID # Required — Firebase messaging sender ID
+VITE_FIREBASE_APP_ID              # Required — Firebase app ID
+VITE_FIREBASE_FIRESTORE_DB_ID    # Optional — Firestore database ID (defaults to "(default)")
 ```
-
-Firebase config is embedded in `firebase-applet-config.json`, not in env vars.
 
 ## Project Structure
 
@@ -123,7 +128,7 @@ Netlify from GitHub `main` branch. Config in `netlify.toml`:
 - Publish: `dist/`
 - SPA redirect: `/* → /index.html` (200)
 
-Netlify env vars: `VITE_GOOGLE_MAPS_API_KEY`, `VITE_GOOGLE_CLIENT_ID`
+Netlify env vars: `VITE_GOOGLE_MAPS_API_KEY`, `VITE_GOOGLE_CLIENT_ID`, `VITE_FIREBASE_*` (all 7 Firebase vars)
 
 ## Adding a New Route
 
